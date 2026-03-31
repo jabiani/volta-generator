@@ -271,19 +271,24 @@ else:
         if is_used:
             used_badge = '<span class="badge" style="background: #E8F5E9; color: #388E3C;">Pitched</span>'
 
-        st.markdown(f"""
-        <div class="angle-card" style="{'border-left: 3px solid #388E3C;' if is_used else ''}">
-            <div style="margin-bottom: 10px;">
-                <span class="badge" style="background: {u_bg}; color: {u_color};">{u_icon} {urgency.title()}</span>
-                <span class="badge" style="background: #E8F0FE; color: #1967D2;">{escape(outlet)}</span>
-                {used_badge}
-            </div>
-            <div class="angle-headline">{escape(angle.get('headline', ''))}</div>
-            <div class="angle-peg">📌 {escape(angle.get('news_peg', 'N/A'))}</div>
-            <div class="angle-rationale">{escape(angle.get('rationale', ''))}</div>
-            <div style="font-size: 13px; color: #777;"><strong>Why this outlet:</strong> {escape(angle.get('outlet_rationale', 'N/A'))}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        def clean(text):
+            """Escape HTML and strip newlines so Markdown doesn't break the card."""
+            return escape(str(text)).replace("\n", " ").replace("\r", "")
+
+        card_html = (
+            f'<div class="angle-card" style="{"border-left: 3px solid #388E3C;" if is_used else ""}">'
+            f'<div style="margin-bottom: 10px;">'
+            f'<span class="badge" style="background: {u_bg}; color: {u_color};">{u_icon} {urgency.title()}</span>'
+            f'<span class="badge" style="background: #E8F0FE; color: #1967D2;">{clean(outlet)}</span>'
+            f'{used_badge}'
+            f'</div>'
+            f'<div class="angle-headline">{clean(angle.get("headline", ""))}</div>'
+            f'<div class="angle-peg">📌 {clean(angle.get("news_peg", "N/A"))}</div>'
+            f'<div class="angle-rationale">{clean(angle.get("rationale", ""))}</div>'
+            f'<div style="font-size: 13px; color: #777;"><strong>Why this outlet:</strong> {clean(angle.get("outlet_rationale", "N/A"))}</div>'
+            f'</div>'
+        )
+        st.markdown(card_html, unsafe_allow_html=True)
 
         if st.checkbox("Mark as pitched", value=is_used, key=f"used_{angle['id']}"):
             if not is_used:
