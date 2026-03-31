@@ -1,0 +1,16 @@
+# Data collection
+feedparser==6.0.11
+requests==2.31.0
+
+# AI processing
+anthropic>=0.42.0
+httpx>=0.27.0
+
+# Deduplication
+rapidfuzz==3.6.1
+
+# Dashboard
+streamlit==1.40.0
+
+# Utilities
+python-dotenv==1.0.1
