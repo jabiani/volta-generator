@@ -1,31 +1,37 @@
-"""Volta Story Angle Generator — Streamlit Dashboard."""
+"""Volta Story Angle Generator - Streamlit Dashboard."""
 
 import streamlit as st
 import json
+import csv
+import io
 from datetime import datetime
 from html import escape
 
 st.set_page_config(
-    page_title="Volta — Story Angle Generator",
+    page_title="Volta - Story Angle Generator",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+
 # --- Helpers ---
 
 def get_keys():
-    """Get API keys from Streamlit secrets or environment."""
     import os
     anthropic_key = st.secrets.get("ANTHROPIC_API_KEY", os.getenv("ANTHROPIC_API_KEY", ""))
     newsapi_key = st.secrets.get("NEWSAPI_KEY", os.getenv("NEWSAPI_KEY", ""))
     return anthropic_key, newsapi_key
 
 
-URGENCY_COLORS = {
-    "high": ("#D32F2F", "#FFEBEE", "🔴"),
-    "medium": ("#F57C00", "#FFF3E0", "🟡"),
-    "low": ("#388E3C", "#E8F5E9", "🟢"),
+def clean(text):
+    return escape(str(text)).replace("\n", " ").replace("\r", "")
+
+
+URGENCY_CONFIG = {
+    "high": {"color": "#C62828", "bg": "#FFEBEE", "label": "High", "dot": "#C62828"},
+    "medium": {"color": "#E65100", "bg": "#FFF3E0", "label": "Medium", "dot": "#E65100"},
+    "low": {"color": "#2E7D32", "bg": "#E8F5E9", "label": "Low", "dot": "#2E7D32"},
 }
 
 OUTLET_LABELS = {
@@ -38,60 +44,153 @@ OUTLET_LABELS = {
 }
 
 
-# --- Custom CSS ---
+# --- Design System CSS ---
 
 st.markdown("""
 <style>
-    .angle-card {
-        border: 1px solid #E0E0E0;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 16px;
-        background: white;
-    }
-    .angle-headline {
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #1A1A1A;
-    }
-    .angle-peg {
-        font-size: 14px;
-        color: #1D9E75;
-        font-weight: 500;
-        margin-bottom: 12px;
-    }
-    .angle-rationale {
-        font-size: 14px;
-        color: #555;
-        line-height: 1.6;
-        margin-bottom: 12px;
-    }
-    .badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 500;
-        margin-right: 8px;
-    }
-    .stat-card {
-        text-align: center;
-        padding: 16px;
-    }
-    .stat-number {
-        font-size: 32px;
-        font-weight: 700;
-        color: #1D9E75;
-    }
-    .stat-label {
-        font-size: 13px;
-        color: #888;
-        margin-top: 4px;
-    }
-    [data-testid="stSidebarNav"] {
-        display: none;
-    }
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap');
+
+[data-testid="stSidebarNav"] { display: none; }
+
+.volta-header {
+    padding: 0 0 24px 0;
+    margin-bottom: 8px;
+}
+.volta-title {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 34px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    margin: 0 0 6px 0;
+}
+.volta-subtitle {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: #6B7280;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.stat-row {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0 24px 0;
+}
+.stat-box {
+    flex: 1;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 16px 12px;
+    text-align: center;
+}
+.stat-value {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1;
+}
+.stat-value.accent { color: #0D6E4F; }
+.stat-label {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: #9CA3AF;
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.angle-card {
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+}
+.angle-card:hover { border-color: #D1D5DB; }
+.angle-card.pitched {
+    border-left: 3px solid #0D6E4F;
+}
+.angle-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 100px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+}
+.pill-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.pill-outlet {
+    background: #F0F4FF;
+    color: #3B5998;
+}
+.pill-pitched {
+    background: #ECFDF5;
+    color: #065F46;
+}
+
+.angle-headline {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    line-height: 1.4;
+    margin-bottom: 10px;
+}
+.angle-peg {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: #0D6E4F;
+    font-weight: 500;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    padding-left: 14px;
+    border-left: 2px solid #A7F3D0;
+}
+.angle-rationale {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: #4B5563;
+    line-height: 1.65;
+    margin-bottom: 12px;
+}
+.angle-outlet-note {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: #9CA3AF;
+    line-height: 1.5;
+}
+.angle-outlet-note strong {
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.section-divider {
+    border: none;
+    border-top: 1px solid #F3F4F6;
+    margin: 28px 0;
+}
+
+.volta-footer {
+    text-align: center;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    color: #D1D5DB;
+    padding: 20px 0 8px 0;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -102,7 +201,6 @@ st.sidebar.page_link("app.py", label="Story Angles", icon="⚡")
 st.sidebar.page_link("pages/1_History.py", label="Historical Dashboard", icon="📊")
 st.sidebar.divider()
 
-# Import here to avoid import errors during initial load
 from src.database import (
     init_db, get_angles, get_articles_by_ids, get_db_stats, get_top_articles,
     get_blocked_terms, add_blocked_term, remove_blocked_term,
@@ -112,7 +210,6 @@ from src.database import (
 
 init_db()
 
-# Auto-seed if database is empty (first run)
 _initial_stats = get_db_stats()
 if _initial_stats["articles"] == 0:
     from seed_data import seed
@@ -135,7 +232,6 @@ if stats["sources"]:
 
 st.sidebar.divider()
 
-# Filters
 st.sidebar.markdown("### Filters")
 st.sidebar.caption("Narrow angles by outlet type or urgency.")
 
@@ -147,21 +243,20 @@ selected_urgency = st.sidebar.selectbox("Urgency", urgency_options)
 
 st.sidebar.divider()
 
-# Refresh pipeline button
 st.sidebar.markdown("### Run pipeline")
 st.sidebar.caption("Fetch new articles, classify, and generate fresh angles.")
-if st.sidebar.button("🔄 Refresh — Fetch & Generate", use_container_width=True):
+if st.sidebar.button("Refresh - Fetch & Generate", use_container_width=True, type="primary"):
     anthropic_key, newsapi_key = get_keys()
     if not anthropic_key:
-        st.sidebar.error("Missing Anthropic API key. Add it to .streamlit/secrets.toml")
+        st.sidebar.error("Missing Anthropic API key.")
     else:
         from src.pipeline import run_full_pipeline
-        with st.spinner("Running full pipeline... This may take 1-2 minutes."):
+        with st.spinner("Running full pipeline..."):
             try:
                 result = run_full_pipeline(newsapi_key, anthropic_key)
                 st.sidebar.success(
-                    f"Done! Ingested {result['ingestion']['inserted']} articles, "
-                    f"generated {result['generation']['angles']} angles."
+                    f"Done! {result['ingestion']['inserted']} articles, "
+                    f"{result['generation']['angles']} angles."
                 )
                 st.rerun()
             except Exception as e:
@@ -169,27 +264,25 @@ if st.sidebar.button("🔄 Refresh — Fetch & Generate", use_container_width=Tr
 
 st.sidebar.divider()
 
-# --- Custom Instructions (Feedback C) ---
 st.sidebar.markdown("### Team instructions")
-st.sidebar.caption("Guide the AI when generating angles. Saved automatically.")
+st.sidebar.caption("Guide angle generation. Saved automatically.")
 
 current_instructions = get_custom_instructions()
 new_instructions = st.sidebar.text_area(
     "Custom instructions",
     value=current_instructions,
-    height=120,
-    placeholder="e.g. Our CEO is available for grid reliability commentary this month.\n\nAvoid angles about Tesla unless they directly impact charging networks.\n\nWe have a product launch in Texas in April - prioritize Texas angles.",
+    height=100,
+    placeholder="e.g. Our CEO is available for grid reliability commentary.\nAvoid angles about Tesla unless they impact charging.\nWe have a Texas launch in April.",
     label_visibility="collapsed",
 )
 if new_instructions != current_instructions:
     set_custom_instructions(new_instructions)
-    st.sidebar.success("Instructions saved")
+    st.sidebar.success("Saved")
 
 st.sidebar.divider()
 
-# --- Blocked Terms (Feedback B) ---
 st.sidebar.markdown("### Blocked topics")
-st.sidebar.caption("Articles matching these terms will be filtered out.")
+st.sidebar.caption("Articles matching these terms are filtered out.")
 
 blocked = get_blocked_terms()
 
@@ -216,34 +309,25 @@ else:
 
 # --- Main Content ---
 
-st.markdown("# Today's story angles")
-st.markdown("*AI-generated pitch ideas for Volta's PR team, grounded in recent news coverage. Expand any angle to see the source articles that inspired it.*")
-st.markdown("")
+st.markdown(
+    '<div class="volta-header">'
+    '<h1 class="volta-title">Today\'s story angles</h1>'
+    '<p class="volta-subtitle">AI-generated pitch ideas grounded in recent news. Expand any angle to see source articles.</p>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
-# Build filters for query
 outlet_filter = None
 if selected_outlet != "All":
     outlet_filter = [k for k, v in OUTLET_LABELS.items() if v == selected_outlet]
     outlet_filter = outlet_filter[0] if outlet_filter else None
 
 urgency_filter = selected_urgency.lower() if selected_urgency != "All" else None
-
 angles = get_angles(outlet_type=outlet_filter, urgency=urgency_filter)
 
 if not angles:
-    st.markdown("---")
-    st.markdown(
-        "**No angles yet.** Click **Refresh — Fetch & Generate** in the sidebar to run the pipeline, "
-        "or check your filters."
-    )
-    st.markdown("")
-    st.info(
-        "💡 **First run?** Make sure your API keys are configured in `.streamlit/secrets.toml` "
-        "or as environment variables, then hit the refresh button."
-    )
+    st.info("No angles yet. Click **Refresh** in the sidebar to run the pipeline, or adjust your filters.")
 else:
-    # Summary row
-    cols = st.columns(5)
     urgency_counts = {"high": 0, "medium": 0, "low": 0}
     pitched_count = 0
     for a in angles:
@@ -253,72 +337,57 @@ else:
         if a.get("used"):
             pitched_count += 1
 
-    with cols[0]:
-        st.markdown(f'<div class="stat-card"><div class="stat-number">{len(angles)}</div><div class="stat-label">Total angles</div></div>', unsafe_allow_html=True)
-    with cols[1]:
-        st.markdown(f'<div class="stat-card"><div class="stat-number">{pitched_count}</div><div class="stat-label">Pitched</div></div>', unsafe_allow_html=True)
-    with cols[2]:
-        st.markdown(f'<div class="stat-card"><div class="stat-number">{urgency_counts["high"]}</div><div class="stat-label">🔴 High</div></div>', unsafe_allow_html=True)
-    with cols[3]:
-        st.markdown(f'<div class="stat-card"><div class="stat-number">{urgency_counts["medium"]}</div><div class="stat-label">🟡 Medium</div></div>', unsafe_allow_html=True)
-    with cols[4]:
-        st.markdown(f'<div class="stat-card"><div class="stat-number">{urgency_counts["low"]}</div><div class="stat-label">🟢 Low</div></div>', unsafe_allow_html=True)
-
-    # CSV download
-    import csv
-    import io
+    st.markdown(
+        f'<div class="stat-row">'
+        f'<div class="stat-box"><div class="stat-value">{len(angles)}</div><div class="stat-label">Total</div></div>'
+        f'<div class="stat-box"><div class="stat-value accent">{pitched_count}</div><div class="stat-label">Pitched</div></div>'
+        f'<div class="stat-box"><div class="stat-value" style="color: #C62828;">{urgency_counts["high"]}</div><div class="stat-label">High</div></div>'
+        f'<div class="stat-box"><div class="stat-value" style="color: #E65100;">{urgency_counts["medium"]}</div><div class="stat-label">Medium</div></div>'
+        f'<div class="stat-box"><div class="stat-value" style="color: #2E7D32;">{urgency_counts["low"]}</div><div class="stat-label">Low</div></div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
     csv_buffer = io.StringIO()
     writer = csv.writer(csv_buffer)
     writer.writerow(["Headline", "News Peg", "Rationale", "Outlet Type", "Why This Outlet", "Urgency", "Pitched", "Generated"])
     for a in angles:
         writer.writerow([
-            a.get("headline", ""),
-            a.get("news_peg", ""),
-            a.get("rationale", ""),
+            a.get("headline", ""), a.get("news_peg", ""), a.get("rationale", ""),
             OUTLET_LABELS.get(a.get("outlet_type", ""), a.get("outlet_type", "")),
-            a.get("outlet_rationale", ""),
-            a.get("urgency", "medium").title(),
-            "Yes" if a.get("used") else "No",
-            a.get("generated_at", "")[:10],
+            a.get("outlet_rationale", ""), a.get("urgency", "medium").title(),
+            "Yes" if a.get("used") else "No", a.get("generated_at", "")[:10],
         ])
 
     st.download_button(
-        label="Download angles as CSV",
+        label="Download as CSV",
         data=csv_buffer.getvalue(),
         file_name="volta_angles.csv",
         mime="text/csv",
-        icon="📥",
     )
 
-    st.markdown("---")
+    st.markdown('<hr class="section-divider">', unsafe_allow_html=True)
 
-    # Angle cards
     for angle in angles:
         urgency = angle.get("urgency", "medium").lower()
-        u_color, u_bg, u_icon = URGENCY_COLORS.get(urgency, URGENCY_COLORS["medium"])
+        uc = URGENCY_CONFIG.get(urgency, URGENCY_CONFIG["medium"])
         outlet = OUTLET_LABELS.get(angle.get("outlet_type", ""), angle.get("outlet_type", ""))
         is_used = bool(angle.get("used", 0))
 
-        used_badge = ""
-        if is_used:
-            used_badge = '<span class="badge" style="background: #E8F5E9; color: #388E3C;">Pitched</span>'
-
-        def clean(text):
-            """Escape HTML and strip newlines so Markdown doesn't break the card."""
-            return escape(str(text)).replace("\n", " ").replace("\r", "")
+        pitched_pill = f'<span class="pill pill-pitched">Pitched</span>' if is_used else ""
+        card_class = "angle-card pitched" if is_used else "angle-card"
 
         card_html = (
-            f'<div class="angle-card" style="{"border-left: 3px solid #388E3C;" if is_used else ""}">'
-            f'<div style="margin-bottom: 10px;">'
-            f'<span class="badge" style="background: {u_bg}; color: {u_color};">{u_icon} {urgency.title()}</span>'
-            f'<span class="badge" style="background: #E8F0FE; color: #1967D2;">{clean(outlet)}</span>'
-            f'{used_badge}'
+            f'<div class="{card_class}">'
+            f'<div class="angle-badges">'
+            f'<span class="pill" style="background: {uc["bg"]}; color: {uc["color"]};"><span class="pill-dot" style="background: {uc["dot"]};"></span>{uc["label"]}</span>'
+            f'<span class="pill pill-outlet">{clean(outlet)}</span>'
+            f'{pitched_pill}'
             f'</div>'
             f'<div class="angle-headline">{clean(angle.get("headline", ""))}</div>'
-            f'<div class="angle-peg">📌 {clean(angle.get("news_peg", "N/A"))}</div>'
+            f'<div class="angle-peg">{clean(angle.get("news_peg", "N/A"))}</div>'
             f'<div class="angle-rationale">{clean(angle.get("rationale", ""))}</div>'
-            f'<div style="font-size: 13px; color: #777;"><strong>Why this outlet:</strong> {clean(angle.get("outlet_rationale", "N/A"))}</div>'
+            f'<div class="angle-outlet-note"><strong>Why this outlet:</strong> {clean(angle.get("outlet_rationale", "N/A"))}</div>'
             f'</div>'
         )
         st.markdown(card_html, unsafe_allow_html=True)
@@ -332,7 +401,6 @@ else:
                 toggle_angle_used(angle["id"], False)
                 st.rerun()
 
-        # Source articles expander
         source_ids = angle.get("source_article_ids", "[]")
         if isinstance(source_ids, str):
             try:
@@ -353,7 +421,6 @@ else:
                             f"[Read original]({sa.get('url', '#')})"
                         )
                     with block_col:
-                        # Extract a blocking keyword from the title
                         skip_words = {"the","a","an","in","of","for","and","to","is","how","why","new","with","from","by","at","on","its","are","as","or"}
                         words = [w for w in sa["title"].split() if w.lower().strip(".,;:!?") not in skip_words and len(w) > 2]
                         suggest = words[0].strip(".,;:!?").lower() if words else sa["source"].lower()
@@ -363,13 +430,4 @@ else:
                             st.rerun()
                     st.markdown("")
 
-
-# --- Footer ---
-
-st.markdown("---")
-st.markdown(
-    "<div style='text-align: center; color: #AAA; font-size: 12px;'>"
-    "Volta Story Angle Generator · Prototype · Powered by Claude"
-    "</div>",
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="volta-footer">Volta Story Angle Generator &middot; Prototype &middot; Powered by Claude</div>', unsafe_allow_html=True)
