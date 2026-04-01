@@ -95,8 +95,8 @@ st.markdown("""
 
 # --- Sidebar ---
 
-st.sidebar.markdown("## ⚡ Volta")
-st.sidebar.markdown("**Story Angle Generator**")
+st.sidebar.page_link("app.py", label="Story Angles", icon="⚡")
+st.sidebar.page_link("pages/1_History.py", label="Historical Dashboard", icon="📊")
 st.sidebar.divider()
 
 # Import here to avoid import errors during initial load
@@ -257,6 +257,33 @@ else:
         st.markdown(f'<div class="stat-card"><div class="stat-number">{urgency_counts["medium"]}</div><div class="stat-label">🟡 Medium</div></div>', unsafe_allow_html=True)
     with cols[4]:
         st.markdown(f'<div class="stat-card"><div class="stat-number">{urgency_counts["low"]}</div><div class="stat-label">🟢 Low</div></div>', unsafe_allow_html=True)
+
+    # CSV download
+    import csv
+    import io
+
+    csv_buffer = io.StringIO()
+    writer = csv.writer(csv_buffer)
+    writer.writerow(["Headline", "News Peg", "Rationale", "Outlet Type", "Why This Outlet", "Urgency", "Pitched", "Generated"])
+    for a in angles:
+        writer.writerow([
+            a.get("headline", ""),
+            a.get("news_peg", ""),
+            a.get("rationale", ""),
+            OUTLET_LABELS.get(a.get("outlet_type", ""), a.get("outlet_type", "")),
+            a.get("outlet_rationale", ""),
+            a.get("urgency", "medium").title(),
+            "Yes" if a.get("used") else "No",
+            a.get("generated_at", "")[:10],
+        ])
+
+    st.download_button(
+        label="Download angles as CSV",
+        data=csv_buffer.getvalue(),
+        file_name="volta_angles.csv",
+        mime="text/csv",
+        icon="📥",
+    )
 
     st.markdown("---")
 

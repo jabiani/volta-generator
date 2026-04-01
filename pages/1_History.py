@@ -10,6 +10,10 @@ st.set_page_config(
     layout="wide",
 )
 
+st.sidebar.page_link("app.py", label="Story Angles", icon="⚡")
+st.sidebar.page_link("pages/1_History.py", label="Historical Dashboard", icon="📊")
+st.sidebar.divider()
+
 from src.database import (
     init_db, get_all_angles, get_angles_by_month, get_articles_by_month,
     get_outlet_breakdown, get_articles_by_ids, toggle_angle_used,
@@ -171,6 +175,32 @@ if urgency_filter != "All":
     filtered = [a for a in filtered if a.get("urgency", "").lower() == urgency_filter.lower()]
 
 st.caption(f"Showing {len(filtered)} of {total} angles")
+
+import csv
+import io
+
+csv_buffer = io.StringIO()
+writer = csv.writer(csv_buffer)
+writer.writerow(["Headline", "News Peg", "Rationale", "Outlet Type", "Why This Outlet", "Urgency", "Pitched", "Generated"])
+for a in filtered:
+    writer.writerow([
+        a.get("headline", ""),
+        a.get("news_peg", ""),
+        a.get("rationale", ""),
+        OUTLET_LABELS.get(a.get("outlet_type", ""), a.get("outlet_type", "")),
+        a.get("outlet_rationale", ""),
+        a.get("urgency", "medium").title(),
+        "Yes" if a.get("used") else "No",
+        a.get("generated_at", "")[:10],
+    ])
+
+st.download_button(
+    label="Download as CSV",
+    data=csv_buffer.getvalue(),
+    file_name="volta_angles_history.csv",
+    mime="text/csv",
+    icon="📥",
+)
 
 for angle in filtered:
     urgency = angle.get("urgency", "medium").lower()
