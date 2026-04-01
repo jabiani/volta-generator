@@ -89,6 +89,9 @@ st.markdown("""
         color: #888;
         margin-top: 4px;
     }
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,6 +123,7 @@ if _initial_stats["articles"] == 0:
 stats = get_db_stats()
 
 st.sidebar.markdown("### Pipeline stats")
+st.sidebar.caption("Data from the latest pipeline run.")
 st.sidebar.metric("Articles ingested", stats["articles"])
 st.sidebar.metric("Classified", stats["classified"])
 st.sidebar.metric("Angles generated", stats["angles"])
@@ -133,6 +137,7 @@ st.sidebar.divider()
 
 # Filters
 st.sidebar.markdown("### Filters")
+st.sidebar.caption("Narrow angles by outlet type or urgency.")
 
 outlet_options = ["All"] + list(OUTLET_LABELS.values())
 selected_outlet = st.sidebar.selectbox("Outlet type", outlet_options)
@@ -144,6 +149,7 @@ st.sidebar.divider()
 
 # Refresh pipeline button
 st.sidebar.markdown("### Run pipeline")
+st.sidebar.caption("Fetch new articles, classify, and generate fresh angles.")
 if st.sidebar.button("🔄 Refresh — Fetch & Generate", use_container_width=True):
     anthropic_key, newsapi_key = get_keys()
     if not anthropic_key:
@@ -210,8 +216,8 @@ else:
 
 # --- Main Content ---
 
-st.markdown("# This week's story angles")
-st.markdown("*AI-generated pitch ideas for Volta's PR team, grounded in recent news coverage.*")
+st.markdown("# Today's story angles")
+st.markdown("*AI-generated pitch ideas for Volta's PR team, grounded in recent news coverage. Expand any angle to see the source articles that inspired it.*")
 st.markdown("")
 
 # Build filters for query

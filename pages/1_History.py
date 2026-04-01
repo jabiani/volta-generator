@@ -14,6 +14,8 @@ st.sidebar.page_link("app.py", label="Story Angles", icon="⚡")
 st.sidebar.page_link("pages/1_History.py", label="Historical Dashboard", icon="📊")
 st.sidebar.divider()
 
+st.markdown('<style>[data-testid="stSidebarNav"] { display: none; }</style>', unsafe_allow_html=True)
+
 from src.database import (
     init_db, get_all_angles, get_angles_by_month, get_articles_by_month,
     get_outlet_breakdown, get_articles_by_ids, toggle_angle_used,
@@ -38,7 +40,7 @@ MONTH_LABELS = {
 }
 
 st.markdown("# Historical dashboard")
-st.markdown("*Track angle generation, pitch rates, and trends over time.*")
+st.markdown("*Track angle generation, pitch rates, and trends over time. Use this to measure what's working and refine your strategy.*")
 st.markdown("")
 
 all_angles = get_all_angles()
@@ -72,6 +74,7 @@ monthly_articles = get_articles_by_month()
 
 if monthly_angles:
     st.markdown("### Monthly activity")
+    st.caption("How many angles we generated each month and how many actually got pitched.")
     chart_col1, chart_col2 = st.columns(2)
 
     with chart_col1:
@@ -119,6 +122,7 @@ outlet_data = get_outlet_breakdown()
 
 if outlet_data:
     st.markdown("### Outlet type breakdown")
+    st.caption("Which outlet types are we pitching most, and where is our hit rate strongest?")
     breakdown_col1, breakdown_col2 = st.columns(2)
 
     with breakdown_col1:
@@ -152,6 +156,7 @@ if outlet_data:
 
 st.markdown("---")
 st.markdown("### All angles")
+st.caption("Every angle ever generated. Filter by status, outlet, or urgency. Expand any row for full details.")
 
 filter_col1, filter_col2, filter_col3 = st.columns(3)
 with filter_col1:
