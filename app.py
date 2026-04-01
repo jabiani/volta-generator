@@ -225,11 +225,6 @@ st.sidebar.metric("Articles ingested", stats["articles"])
 st.sidebar.metric("Classified", stats["classified"])
 st.sidebar.metric("Angles generated", stats["angles"])
 
-if stats["sources"]:
-    st.sidebar.markdown("### Sources")
-    for source in sorted(stats["sources"]):
-        st.sidebar.markdown(f"- {source}")
-
 st.sidebar.divider()
 
 st.sidebar.markdown("### Filters")
